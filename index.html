@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0, touch-action=manipulation">
-    <title>General's War: Frontline v5.2</title>
+    <title>General's War: Frontline v5.3</title>
     <style>
         * {
             box-sizing: border-box;
@@ -108,7 +108,7 @@
 </head>
 <body>
 <div id="menu">
-    <h1>⚔️ GENERAL'S WAR v5.2</h1>
+    <h1>⚔️ GENERAL'S WAR v5.3 fix</h1>
     <label for="difficulty">Сложность:</label>
     <select id="difficulty">
         <option value="easy">Легко</option>
@@ -147,7 +147,7 @@
 
 <script>
 (function() {
-    // ---------- DOM элементы ----------
+    // ---------- DOM ----------
     const menu = document.getElementById('menu');
     const gameDiv = document.getElementById('game');
     const canvas = document.getElementById('gameCanvas');
@@ -177,7 +177,7 @@
     const LANES_Y = [65, 145, 225, 305, 385, 465];
 
     const CARD_TYPES = [
-        { id:'infantry', name:'Пехота', cost:2, hp:80, dmg:15, atkspd:0.9, spd:40, range:30, color:'#81c784', sym:'m' },
+        { id:'infantry', name:'Пехота', cost:2, hp:80, dmg:15, atkspd:0.9, spd:40, range:30, color:'#81c784', sym:'🪖' },
         { id:'assault', name:'Штурмовик', cost:3, hp:110, dmg:28, atkspd:0.8, spd:45, range:25, color:'#ff8a65', sym:'⚔️' },
         { id:'mg', name:'Пулемёт', cost:4, hp:100, dmg:18, atkspd:0.6, spd:25, range:70, color:'#ef9a9a', antiInf:true, sym:'🎯' },
         { id:'sniper', name:'Снайпер', cost:3, hp:60, dmg:45, atkspd:1.8, spd:35, range:100, color:'#b39ddb', sym:'🔭' },
@@ -190,9 +190,16 @@
         { id:'assaulteng', name:'Шт.инженер', cost:4, hp:110, dmg:22, atkspd:1.0, spd:35, range:30, color:'#ffb74d', placeFort:true, fortTime:2.0, antiInf:true, sym:'🧨' }
     ];
 
-    // ---------- Состояние игры ----------
+    const TERRAIN_TYPES = {
+        forest: { color: '#2d4a2d', symbol: '🌲', speedMul: 0.6, defenseBonus: 0.2, damageMul: 1.0 },
+        hill:   { color: '#6b5b3a', symbol: '⛰️', speedMul: 0.8, defenseBonus: 0.15, damageMul: 1.1 },
+        swamp:  { color: '#3a4a2a', symbol: '💧', speedMul: 0.4, defenseBonus: 0.0, damageMul: 0.9 },
+        village:{ color: '#8b7d6b', symbol: '🏘️', speedMul: 1.2, defenseBonus: 0.1, damageMul: 1.0 }
+    };
+
+    // ---------- Состояние ----------
     let difficulty = 'normal';
-    let gamePhase = 'preparation'; // 'preparation' | 'battle'
+    let gamePhase = 'preparation';
     let preparationTimer = 25;
     let playerRes = { pts: 4, rate: 0.5, wh: 0 };
     let enemyRes = { pts: 4, rate: 0.5, wh: 0 };
@@ -217,7 +224,33 @@
     let aiSpawnTimer = 0, AI_SPAWN_INT = 3.5, aiHpMult = 1.0;
     let lastTime = performance.now();
 
-    // ---------- Функции ----------
+    // Местность
+    let terrainTiles = [];
+
+    // ---------- Генерация местности ----------
+    function generateTerrain() {
+        terrainTiles = [];
+        const tileW = 60, tileH = 45;
+        for (let lane = 0; lane < 6; lane++) {
+            const baseY = LANES_Y[lane] - tileH/2;
+            for (let i = 0; i < 3; i++) {
+                let type = ['forest', 'hill', 'swamp', 'village'][Math.floor(Math.random()*4)];
+                let x = 30 + Math.random() * (MID_X - 120);
+                terrainTiles.push({ x, y: baseY, w: tileW, h: tileH, type });
+            }
+            let leftTiles = terrainTiles.filter(t => t.y === baseY && t.x < MID_X);
+            for (let t of leftTiles) {
+                let mirrorX = W - t.x - tileW;
+                terrainTiles.push({ x: mirrorX, y: t.y, w: tileW, h: tileH, type: t.type });
+            }
+        }
+    }
+
+    function getTerrainAt(x, y) {
+        return terrainTiles.find(t => x >= t.x && x <= t.x + t.w && y >= t.y && y <= t.y + t.h);
+    }
+
+    // ---------- Точки интереса ----------
     function initPoints() {
         pointsOfInterest = [];
         for (let l = 0; l < 6; l++) {
@@ -234,6 +267,7 @@
         return pointsOfInterest.find(p => p.type === 'fort' && p.lane === lane && Math.hypot(p.x - x, p.y - y) < 25);
     }
 
+    // ---------- Юниты ----------
     function createUnit(faction, typeId, lane, x, y) {
         let card = CARD_TYPES.find(c => c.id === typeId);
         if (!card) return null;
@@ -241,8 +275,10 @@
         return {
             id: uid++, faction, type: typeId, lane, x, y,
             hp: card.hp * hpMul, maxHp: card.hp * hpMul,
-            dmg: card.dmg, atkSpd: card.atkspd, atkCd: 0,
-            spd: card.spd, range: card.range, target: null,
+            baseDmg: card.dmg, dmg: card.dmg,
+            baseAtkSpd: card.atkspd, atkSpd: card.atkspd, atkCd: 0,
+            baseSpd: card.spd, spd: card.spd,
+            range: card.range, target: null,
             color: card.color, sym: card.sym,
             armor: card.armor || 0, antiInf: card.antiInf || false,
             antiTank: card.antiTank || false, splash: card.splash || 0,
@@ -348,6 +384,10 @@
                     if (target.armor && !u.antiTank) dmg *= (1 - target.armor);
                     if (u.antiInf && target.type === 'infantry') dmg *= 1.6;
                     if (u.antiTank && (target.type === 'tank' || target.type === 'td')) dmg *= 1.8;
+                    let targetTile = getTerrainAt(target.x, target.y);
+                    if (targetTile && TERRAIN_TYPES[targetTile.type]) {
+                        dmg *= (1 - TERRAIN_TYPES[targetTile.type].defenseBonus);
+                    }
                     if (u.splash > 0 && target.lane !== undefined) {
                         for (let e of enemies) {
                             if (Math.abs(e.x - target.x) < u.splash && e.lane === u.lane) e.hp -= dmg * 0.6;
@@ -376,28 +416,37 @@
     function moveUnits(dt) {
         for (let u of units) {
             if (u.hp <= 0) continue;
+            // Сброс к базовым
+            u.spd = u.baseSpd;
+            u.dmg = u.baseDmg;
+            u.atkSpd = u.baseAtkSpd;
+            let tile = getTerrainAt(u.x, u.y);
+            if (tile && TERRAIN_TYPES[tile.type]) {
+                let t = TERRAIN_TYPES[tile.type];
+                u.spd *= t.speedMul;
+                u.dmg *= t.damageMul;
+            }
             let supplied = isSupplied(u);
-            let spd = u.spd;
-            if (!supplied && !(breakoutActive && u.faction === 'player')) spd *= 0.4;
-            if (u.faction === 'player' && abilityActive) spd *= 1.5;
-            if (u.retreating) spd *= 2.2;
+            if (!supplied && !(breakoutActive && u.faction === 'player')) u.spd *= 0.4;
+            if (u.faction === 'player' && abilityActive) u.spd *= 1.5;
+            if (u.retreating) u.spd *= 2.2;
             if (u.target) continue;
             if (u.repairTarget && u.repairTarget.hp < u.repairTarget.max) {
                 let d = Math.abs(u.x - u.repairTarget.x);
-                if (d > 15) u.x += Math.sign(u.repairTarget.x - u.x) * spd * dt;
+                if (d > 15) u.x += Math.sign(u.repairTarget.x - u.x) * u.spd * dt;
                 else u.repairTarget.hp = Math.min(u.repairTarget.max, u.repairTarget.hp + 15 * dt);
                 continue;
             }
             if (u.hold) continue;
             if (u.moveTx !== null) {
                 let dx = u.moveTx - u.x;
-                if (Math.abs(dx) > 5) u.x += Math.sign(dx) * spd * dt;
+                if (Math.abs(dx) > 5) u.x += Math.sign(dx) * u.spd * dt;
                 else u.moveTx = null;
                 continue;
             }
             let dir = u.faction === 'player' ? 1 : -1;
             if (u.retreating) dir = -dir;
-            u.x += dir * spd * dt;
+            u.x += dir * u.spd * dt;
             u.x = Math.max(5, Math.min(W - 5, u.x));
             if (u.faction === 'player' && u.x >= W - 8) { enemyHQ.hp -= 8; u.hp = 0; }
             if (u.faction === 'enemy' && u.x <= 8) { playerHQ.hp -= 8; u.hp = 0; }
@@ -472,9 +521,25 @@
         }
     }
 
-    // ---------- Отрисовка ----------
+    function drawTerrain() {
+        for (let t of terrainTiles) {
+            let type = TERRAIN_TYPES[t.type];
+            if (!type) continue;
+            ctx.fillStyle = type.color;
+            ctx.globalAlpha = 0.3;
+            ctx.fillRect(t.x, t.y, t.w, t.h);
+            ctx.globalAlpha = 1;
+            ctx.font = '20px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillStyle = '#fff';
+            ctx.fillText(type.symbol, t.x + t.w/2, t.y + t.h/2);
+        }
+    }
+
     function drawBackground() {
         ctx.fillStyle = '#4a5d4a'; ctx.fillRect(0, 0, W, H);
+        drawTerrain();
         ctx.strokeStyle = '#5a6b5a'; ctx.lineWidth = 0.5;
         for (let y = 0; y < H; y += 40) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
         for (let x = 0; x < W; x += 40) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
@@ -541,7 +606,6 @@
             ctx.restore();
         }
 
-        // Линии снабжения для выделенных и окружённых
         let showSupplyUnits = units.filter(u => selectedUnits.includes(u) || !isSupplied(u));
         for (let u of showSupplyUnits) {
             if (gamePhase !== 'battle') continue;
@@ -588,7 +652,6 @@
         drawSelectionRect();
     }
 
-    // ---------- Ввод ----------
     function getCoords(e) {
         const rect = canvas.getBoundingClientRect();
         const sx = W / rect.width, sy = H / rect.height;
@@ -606,13 +669,11 @@
         isSelecting = true; selStartX = c.x; selStartY = c.y;
         selectionRect = { x1: c.x, y1: c.y, x2: c.x, y2: c.y };
     }
-
     function onPointerMove(e) {
         e.preventDefault();
         if (isDragging) { const c = getCoords(e); ghostX = c.x; ghostY = c.y; return; }
         if (isSelecting) { const c = getCoords(e); selectionRect.x2 = c.x; selectionRect.y2 = c.y; }
     }
-
     function onPointerUp(e) {
         e.preventDefault();
         if (isDragging) {
@@ -663,7 +724,6 @@
     canvas.addEventListener('touchmove', onPointerMove, { passive: false });
     canvas.addEventListener('touchend', onPointerUp);
 
-    // ---------- UI карточек ----------
     function buildCardsUI() {
         cardsContainer.innerHTML = '';
         CARD_TYPES.forEach((c, i) => {
@@ -696,7 +756,6 @@
         breakoutBtn.classList.toggle('cooldown', breakoutCd > 0);
     }
 
-    // ---------- Обработчики кнопок ----------
     abilityBtn.addEventListener('click', () => {
         if (gamePhase !== 'battle' || abilityCd > 0) return;
         abilityActive = true; abilityTimer = 5; abilityCd = 20;
@@ -729,7 +788,6 @@
         breakoutActive = true; breakoutTimer = 4; breakoutCd = 15;
     });
 
-    // ---------- Старт и цикл ----------
     function resetGame() {
         playerRes = { pts: 4, rate: 0.5, wh: 0 };
         enemyRes = { pts: 4, rate: 0.5, wh: 0 };
@@ -741,15 +799,17 @@
         breakoutCd = 0; breakoutActive = false;
         selectedCard = null; isDragging = false; selectedUnits = [];
         gamePhase = 'preparation'; preparationTimer = 25;
+        generateTerrain();
         initPoints(); updateRates();
-        // Генерал
+        // Генерал (создаём напрямую с обязательными полями)
         units.push({
             id: uid++, faction: 'player', type: 'general', lane: 0, x: 40, y: LANES_Y[0],
-            hp: 200, maxHp: 200, dmg: 0, atkSpd: 99, atkCd: 0, spd: 35, range: 0,
-            sym: '⭐', color: '#ffd54f', armor: 0,
-            placeFort: false, fortBuilt: true, retreating: false,
-            moveTx: null, hold: false, repairTarget: null,
-            xp: 0, level: 0, attackFlash: 0, encirclementTimer: 0
+            hp: 200, maxHp: 200, baseDmg: 0, dmg: 0, baseAtkSpd: 99, atkSpd: 99, atkCd: 0,
+            baseSpd: 35, spd: 35, range: 0, target: null,
+            color: '#ffd54f', sym: '⭐', armor: 0, antiInf: false, antiTank: false, splash: 0,
+            placeFort: false, fortTime: 3.0, fortBuilt: true, fortTimer: 0,
+            retreating: false, moveTx: null, hold: false, repairTarget: null,
+            xp: 0, level: 0, lastAttackerId: null, attackFlash: 0, encirclementTimer: 0
         });
         buildCardsUI(); updateCardsSelection();
         winMessage.style.display = 'none';
@@ -785,7 +845,6 @@
                 return;
             }
 
-            // Фаза боя
             playerRes.pts = Math.min(playerRes.pts + playerRes.rate * dt, 20);
             enemyRes.pts = Math.min(enemyRes.pts + enemyRes.rate * dt, 20);
             abilityCd = Math.max(0, abilityCd - dt);
@@ -804,11 +863,8 @@
             if (gen && gen.hp > 0) {
                 units.forEach(u => {
                     if (u.faction === 'player' && u !== gen && Math.hypot(u.x - gen.x, u.y - gen.y) < 90) {
-                        let baseCard = CARD_TYPES.find(c => c.id === u.type);
-                        if (baseCard) {
-                            u.atkSpd = baseCard.atkspd * 0.85;
-                            u.dmg = baseCard.dmg * 1.1;
-                        }
+                        u.atkSpd = u.baseAtkSpd * 0.85;
+                        u.dmg = u.baseDmg * 1.1;
                     }
                 });
             }
@@ -836,8 +892,7 @@
             render(); updateUI();
             requestAnimationFrame(gameLoop);
         } catch (e) {
-            console.error('Ошибка в игровом цикле:', e);
-            // Попробуем продолжить цикл, чтобы игра не вставала
+            console.error(e);
             requestAnimationFrame(gameLoop);
         }
     }
@@ -851,7 +906,6 @@
         }, 3000);
     }
 
-    // Инициализация меню
     menu.style.display = 'flex';
     gameDiv.style.display = 'none';
 })();
