@@ -3,35 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0, touch-action=manipulation">
-    <title>General's War: Frontline v5.3</title>
+    <title>General's War: Frontline v5.4 – фикс мобильного размещения</title>
     <style>
         * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            -webkit-tap-highlight-color: transparent;
-            user-select: none;
+            box-sizing: border-box; margin: 0; padding: 0;
+            -webkit-tap-highlight-color: transparent; user-select: none;
             font-family: 'Segoe UI', system-ui, sans-serif;
         }
-        body {
-            background: #121212;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            touch-action: pan-y;
-        }
+        body { background: #121212; display: flex; justify-content: center; align-items: center; min-height: 100vh; touch-action: pan-y; }
         #menu {
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: #1e1e1e;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            gap: 20px;
-            z-index: 200;
-            color: #eee;
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #1e1e1e; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; gap: 20px; z-index: 200; color: #eee;
         }
         #menu h1 { font-size: 32px; color: #ffd54f; text-shadow: 0 0 10px #000; }
         #menu button {
@@ -49,8 +32,7 @@
             display: flex; flex-direction: column; color: #eee;
         }
         .info-panel {
-            padding: 8px 12px; background: #1f1f1f;
-            border-bottom: 1px solid #444;
+            padding: 8px 12px; background: #1f1f1f; border-bottom: 1px solid #444;
             display: flex; justify-content: space-between; align-items: center;
             font-size: 13px; font-weight: bold;
         }
@@ -73,8 +55,8 @@
         .cards-row { display: flex; gap: 4px; flex-wrap: wrap; justify-content: center; }
         .card {
             flex: 0 0 auto; min-width: 60px; background: #3e3e3e;
-            border: 2px solid #555; border-radius: 8px;
-            padding: 5px 3px; text-align: center; font-size: 10px; font-weight: bold;
+            border: 2px solid #555; border-radius: 8px; padding: 5px 3px;
+            text-align: center; font-size: 10px; font-weight: bold;
             cursor: pointer; transition: all 0.15s; color: #ccc;
         }
         .card.selected { border-color: #ffd54f; background: #4a4a3a; transform: scale(1.05); }
@@ -89,12 +71,9 @@
             font-weight: bold; font-size: 11px; cursor: pointer;
             flex: 1 1 auto; min-width: 60px; color: white;
         }
-        .ability-btn { background: #b71c1c; }
-        .retreat-btn { background: #1565c0; }
-        .order-btn { background: #2e7d32; }
-        .smoke-btn { background: #5d4037; }
-        .recon-btn { background: #00838f; }
-        .breakout-btn { background: #f57c00; }
+        .ability-btn { background: #b71c1c; } .retreat-btn { background: #1565c0; }
+        .order-btn { background: #2e7d32; } .smoke-btn { background: #5d4037; }
+        .recon-btn { background: #00838f; } .breakout-btn { background: #f57c00; }
         .cooldown { background: #555 !important; color: #aaa !important; pointer-events: none; }
         .selected-count { text-align: center; font-size: 12px; color: #aaa; }
         #winMessage {
@@ -108,7 +87,7 @@
 </head>
 <body>
 <div id="menu">
-    <h1>⚔️ GENERAL'S WAR v5.3 fix</h1>
+    <h1>⚔️ GENERAL'S WAR v5.4</h1>
     <label for="difficulty">Сложность:</label>
     <select id="difficulty">
         <option value="easy">Легко</option>
@@ -147,14 +126,12 @@
 
 <script>
 (function() {
-    // ---------- DOM ----------
     const menu = document.getElementById('menu');
     const gameDiv = document.getElementById('game');
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     const startBtn = document.getElementById('startBtn');
     const difficultySelect = document.getElementById('difficulty');
-
     const playerHpBar = document.getElementById('playerHpBar');
     const enemyHpBar = document.getElementById('enemyHpBar');
     const playerPointsSpan = document.getElementById('playerPoints');
@@ -171,7 +148,6 @@
     const cardsContainer = document.getElementById('cardsContainer');
     const selectedCountSpan = document.getElementById('selectedCount');
 
-    // ---------- Константы ----------
     const W = 800, H = 500;
     const MID_X = W / 2;
     const LANES_Y = [65, 145, 225, 305, 385, 465];
@@ -197,7 +173,6 @@
         village:{ color: '#8b7d6b', symbol: '🏘️', speedMul: 1.2, defenseBonus: 0.1, damageMul: 1.0 }
     };
 
-    // ---------- Состояние ----------
     let difficulty = 'normal';
     let gamePhase = 'preparation';
     let preparationTimer = 25;
@@ -208,26 +183,17 @@
     let pointsOfInterest = [];
     let units = [];
     let uid = 0;
-
-    // Способности
     let abilityCd = 0, abilityActive = false, abilityTimer = 0;
     let retreatCd = 0, retreatActive = false, retreatTimer = 0;
     let smokeCd = 0, smokeActive = false, smokeTimer = 0, smokePos = null;
     let reconCd = 0, reconActive = false, reconTimer = 0;
     let breakoutCd = 0, breakoutActive = false, breakoutTimer = 0;
-
-    // Выбор карты и управление
     let selectedCard = null, isDragging = false, ghostX, ghostY;
     let selectedUnits = [], selectionRect = null, isSelecting = false, selStartX, selStartY;
-
-    // AI
     let aiSpawnTimer = 0, AI_SPAWN_INT = 3.5, aiHpMult = 1.0;
     let lastTime = performance.now();
-
-    // Местность
     let terrainTiles = [];
 
-    // ---------- Генерация местности ----------
     function generateTerrain() {
         terrainTiles = [];
         const tileW = 60, tileH = 45;
@@ -250,7 +216,6 @@
         return terrainTiles.find(t => x >= t.x && x <= t.x + t.w && y >= t.y && y <= t.y + t.h);
     }
 
-    // ---------- Точки интереса ----------
     function initPoints() {
         pointsOfInterest = [];
         for (let l = 0; l < 6; l++) {
@@ -267,7 +232,6 @@
         return pointsOfInterest.find(p => p.type === 'fort' && p.lane === lane && Math.hypot(p.x - x, p.y - y) < 25);
     }
 
-    // ---------- Юниты ----------
     function createUnit(faction, typeId, lane, x, y) {
         let card = CARD_TYPES.find(c => c.id === typeId);
         if (!card) return null;
@@ -385,13 +349,9 @@
                     if (u.antiInf && target.type === 'infantry') dmg *= 1.6;
                     if (u.antiTank && (target.type === 'tank' || target.type === 'td')) dmg *= 1.8;
                     let targetTile = getTerrainAt(target.x, target.y);
-                    if (targetTile && TERRAIN_TYPES[targetTile.type]) {
-                        dmg *= (1 - TERRAIN_TYPES[targetTile.type].defenseBonus);
-                    }
+                    if (targetTile && TERRAIN_TYPES[targetTile.type]) dmg *= (1 - TERRAIN_TYPES[targetTile.type].defenseBonus);
                     if (u.splash > 0 && target.lane !== undefined) {
-                        for (let e of enemies) {
-                            if (Math.abs(e.x - target.x) < u.splash && e.lane === u.lane) e.hp -= dmg * 0.6;
-                        }
+                        for (let e of enemies) if (Math.abs(e.x - target.x) < u.splash && e.lane === u.lane) e.hp -= dmg * 0.6;
                     }
                     target.hp -= dmg;
                     target.lastAttackerId = u.id;
@@ -416,15 +376,11 @@
     function moveUnits(dt) {
         for (let u of units) {
             if (u.hp <= 0) continue;
-            // Сброс к базовым
-            u.spd = u.baseSpd;
-            u.dmg = u.baseDmg;
-            u.atkSpd = u.baseAtkSpd;
+            u.spd = u.baseSpd; u.dmg = u.baseDmg; u.atkSpd = u.baseAtkSpd;
             let tile = getTerrainAt(u.x, u.y);
             if (tile && TERRAIN_TYPES[tile.type]) {
-                let t = TERRAIN_TYPES[tile.type];
-                u.spd *= t.speedMul;
-                u.dmg *= t.damageMul;
+                u.spd *= TERRAIN_TYPES[tile.type].speedMul;
+                u.dmg *= TERRAIN_TYPES[tile.type].damageMul;
             }
             let supplied = isSupplied(u);
             if (!supplied && !(breakoutActive && u.faction === 'player')) u.spd *= 0.4;
@@ -459,13 +415,8 @@
             if (u.hp <= 0) continue;
             if (!isSupplied(u)) {
                 u.encirclementTimer += dt;
-                if (u.encirclementTimer >= 0.5) {
-                    u.hp -= u.maxHp * 0.02;
-                    u.encirclementTimer = 0;
-                }
-            } else {
-                u.encirclementTimer = 0;
-            }
+                if (u.encirclementTimer >= 0.5) { u.hp -= u.maxHp * 0.02; u.encirclementTimer = 0; }
+            } else u.encirclementTimer = 0;
         }
         units = units.filter(u => u.hp > 0);
     }
@@ -605,7 +556,6 @@
             ctx.fillRect(-12, -20, 24 * hpP, 4);
             ctx.restore();
         }
-
         let showSupplyUnits = units.filter(u => selectedUnits.includes(u) || !isSupplied(u));
         for (let u of showSupplyUnits) {
             if (gamePhase !== 'battle') continue;
@@ -655,8 +605,17 @@
     function getCoords(e) {
         const rect = canvas.getBoundingClientRect();
         const sx = W / rect.width, sy = H / rect.height;
-        let cx = e.touches ? e.touches[0].clientX : e.clientX;
-        let cy = e.touches ? e.touches[0].clientY : e.clientY;
+        let cx, cy;
+        if (e.touches && e.touches.length > 0) {
+            cx = e.touches[0].clientX;
+            cy = e.touches[0].clientY;
+        } else if (e.changedTouches && e.changedTouches.length > 0) {
+            cx = e.changedTouches[0].clientX;
+            cy = e.changedTouches[0].clientY;
+        } else {
+            cx = e.clientX;
+            cy = e.clientY;
+        }
         return { x: (cx - rect.left) * sx, y: (cy - rect.top) * sy };
     }
 
@@ -801,7 +760,6 @@
         gamePhase = 'preparation'; preparationTimer = 25;
         generateTerrain();
         initPoints(); updateRates();
-        // Генерал (создаём напрямую с обязательными полями)
         units.push({
             id: uid++, faction: 'player', type: 'general', lane: 0, x: 40, y: LANES_Y[0],
             hp: 200, maxHp: 200, baseDmg: 0, dmg: 0, baseAtkSpd: 99, atkSpd: 99, atkCd: 0,
@@ -836,10 +794,7 @@
 
             if (gamePhase === 'preparation') {
                 preparationTimer -= dt;
-                if (preparationTimer <= 0.01) {
-                    gamePhase = 'battle';
-                    aiPrep();
-                }
+                if (preparationTimer <= 0.01) { gamePhase = 'battle'; aiPrep(); }
                 render(); updateUI();
                 requestAnimationFrame(gameLoop);
                 return;
