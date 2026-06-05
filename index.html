@@ -1,0 +1,860 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0, touch-action=manipulation">
+    <title>General's War: Frontline v5.2</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+        }
+        body {
+            background: #121212;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            touch-action: pan-y;
+        }
+        #menu {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: #1e1e1e;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+            z-index: 200;
+            color: #eee;
+        }
+        #menu h1 { font-size: 32px; color: #ffd54f; text-shadow: 0 0 10px #000; }
+        #menu button {
+            background: #3e3e3e; border: 2px solid #ffd54f;
+            color: #ffd54f; font-size: 20px; padding: 12px 30px;
+            border-radius: 12px; cursor: pointer; font-weight: bold;
+        }
+        #menu select {
+            background: #3e3e3e; border: 2px solid #ffd54f;
+            color: #ffd54f; font-size: 18px; padding: 8px 16px; border-radius: 8px;
+        }
+        .game-container {
+            width: 100%; max-width: 800px; background: #2d2d2d;
+            border: 2px solid #5c5c5c; border-radius: 16px; overflow: hidden;
+            display: flex; flex-direction: column; color: #eee;
+        }
+        .info-panel {
+            padding: 8px 12px; background: #1f1f1f;
+            border-bottom: 1px solid #444;
+            display: flex; justify-content: space-between; align-items: center;
+            font-size: 13px; font-weight: bold;
+        }
+        .hq-health { display: flex; align-items: center; gap: 5px; }
+        .hq-bar {
+            width: 60px; height: 10px; background: #3a3a3a;
+            border-radius: 5px; overflow: hidden; border: 1px solid #555;
+        }
+        .hq-fill { height: 100%; background: #4caf50; width: 100%; transition: width 0.25s; }
+        .hq-fill.enemy { background: #f44336; }
+        .resources { display: flex; align-items: center; gap: 4px; color: #ffd54f; font-size: 14px; }
+        canvas {
+            display: block; width: 100%; height: auto; background: #3a4a3a;
+            touch-action: none; border-bottom: 1px solid #555;
+        }
+        .controls {
+            padding: 8px; background: #1f1f1f;
+            display: flex; flex-direction: column; gap: 6px;
+        }
+        .cards-row { display: flex; gap: 4px; flex-wrap: wrap; justify-content: center; }
+        .card {
+            flex: 0 0 auto; min-width: 60px; background: #3e3e3e;
+            border: 2px solid #555; border-radius: 8px;
+            padding: 5px 3px; text-align: center; font-size: 10px; font-weight: bold;
+            cursor: pointer; transition: all 0.15s; color: #ccc;
+        }
+        .card.selected { border-color: #ffd54f; background: #4a4a3a; transform: scale(1.05); }
+        .card .cost {
+            background: #ffd54f; color: #000; border-radius: 50%;
+            width: 16px; height: 16px; display: inline-flex;
+            align-items: center; justify-content: center; font-size: 10px; margin-bottom: 2px;
+        }
+        .btn-row { display: flex; gap: 5px; flex-wrap: wrap; justify-content: center; }
+        .ability-btn, .retreat-btn, .order-btn, .smoke-btn, .recon-btn, .breakout-btn {
+            border: none; border-radius: 8px; padding: 6px 8px;
+            font-weight: bold; font-size: 11px; cursor: pointer;
+            flex: 1 1 auto; min-width: 60px; color: white;
+        }
+        .ability-btn { background: #b71c1c; }
+        .retreat-btn { background: #1565c0; }
+        .order-btn { background: #2e7d32; }
+        .smoke-btn { background: #5d4037; }
+        .recon-btn { background: #00838f; }
+        .breakout-btn { background: #f57c00; }
+        .cooldown { background: #555 !important; color: #aaa !important; pointer-events: none; }
+        .selected-count { text-align: center; font-size: 12px; color: #aaa; }
+        #winMessage {
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: rgba(20,20,20,0.95); color: white; padding: 20px 35px;
+            border-radius: 16px; font-size: 26px; font-weight: bold; z-index: 150;
+            display: none; border: 2px solid #ffd54f;
+        }
+        #game { display: none; }
+    </style>
+</head>
+<body>
+<div id="menu">
+    <h1>⚔️ GENERAL'S WAR v5.2</h1>
+    <label for="difficulty">Сложность:</label>
+    <select id="difficulty">
+        <option value="easy">Легко</option>
+        <option value="normal" selected>Нормально</option>
+        <option value="hard">Сложно</option>
+    </select>
+    <button id="startBtn">Начать бой</button>
+</div>
+
+<div id="game" class="game-container">
+    <div class="info-panel">
+        <div class="hq-health"><span>🏰</span><div class="hq-bar"><div id="playerHpBar" class="hq-fill"></div></div></div>
+        <div class="resources"><span>⚡</span><span id="playerPoints">0</span></div>
+        <span id="phaseText">Подготовка</span>
+        <div class="resources"><span>⚡</span><span id="enemyPoints">0</span></div>
+        <div class="hq-health"><div class="hq-bar"><div id="enemyHpBar" class="hq-fill enemy"></div></div><span>🏰</span></div>
+    </div>
+    <canvas id="gameCanvas" width="800" height="500"></canvas>
+    <div class="controls">
+        <div class="cards-row" id="cardsContainer"></div>
+        <div class="btn-row">
+            <button class="ability-btn" id="abilityBtn">⚔️ Атака</button>
+            <button class="retreat-btn" id="retreatBtn">↩️ Отход</button>
+            <button class="order-btn" id="stopBtn">🛑 Стоп</button>
+            <button class="order-btn" id="holdBtn">🛡️ Держать</button>
+        </div>
+        <div class="btn-row">
+            <button class="smoke-btn" id="smokeBtn">💨 Дым</button>
+            <button class="recon-btn" id="reconBtn">🔭 Разведка</button>
+            <button class="breakout-btn" id="breakoutBtn">⚡ Прорыв</button>
+        </div>
+        <div class="selected-count">Выбрано: <span id="selectedCount">0</span></div>
+    </div>
+</div>
+<div id="winMessage"></div>
+
+<script>
+(function() {
+    // ---------- DOM элементы ----------
+    const menu = document.getElementById('menu');
+    const gameDiv = document.getElementById('game');
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const startBtn = document.getElementById('startBtn');
+    const difficultySelect = document.getElementById('difficulty');
+
+    const playerHpBar = document.getElementById('playerHpBar');
+    const enemyHpBar = document.getElementById('enemyHpBar');
+    const playerPointsSpan = document.getElementById('playerPoints');
+    const enemyPointsSpan = document.getElementById('enemyPoints');
+    const phaseText = document.getElementById('phaseText');
+    const abilityBtn = document.getElementById('abilityBtn');
+    const retreatBtn = document.getElementById('retreatBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    const holdBtn = document.getElementById('holdBtn');
+    const smokeBtn = document.getElementById('smokeBtn');
+    const reconBtn = document.getElementById('reconBtn');
+    const breakoutBtn = document.getElementById('breakoutBtn');
+    const winMessage = document.getElementById('winMessage');
+    const cardsContainer = document.getElementById('cardsContainer');
+    const selectedCountSpan = document.getElementById('selectedCount');
+
+    // ---------- Константы ----------
+    const W = 800, H = 500;
+    const MID_X = W / 2;
+    const LANES_Y = [65, 145, 225, 305, 385, 465];
+
+    const CARD_TYPES = [
+        { id:'infantry', name:'Пехота', cost:2, hp:80, dmg:15, atkspd:0.9, spd:40, range:30, color:'#81c784', sym:'m' },
+        { id:'assault', name:'Штурмовик', cost:3, hp:110, dmg:28, atkspd:0.8, spd:45, range:25, color:'#ff8a65', sym:'⚔️' },
+        { id:'mg', name:'Пулемёт', cost:4, hp:100, dmg:18, atkspd:0.6, spd:25, range:70, color:'#ef9a9a', antiInf:true, sym:'🎯' },
+        { id:'sniper', name:'Снайпер', cost:3, hp:60, dmg:45, atkspd:1.8, spd:35, range:100, color:'#b39ddb', sym:'🔭' },
+        { id:'tank', name:'Лёгкий танк', cost:5, hp:250, dmg:40, atkspd:1.3, spd:35, range:50, color:'#64b5f6', armor:0.35, sym:'🛡️' },
+        { id:'td', name:'ПТ-САУ', cost:5, hp:200, dmg:60, atkspd:1.5, spd:30, range:65, color:'#4db6ac', antiTank:true, sym:'💣' },
+        { id:'artillery', name:'Артиллерия', cost:6, hp:120, dmg:35, atkspd:2.5, spd:20, range:130, splash:40, color:'#ffb74d', sym:'💥' },
+        { id:'engineer', name:'Сапёр', cost:3, hp:90, dmg:10, atkspd:1.2, spd:35, range:30, color:'#fff176', placeFort:true, sym:'🔧' },
+        { id:'mortar', name:'Миномёт', cost:4, hp:80, dmg:25, atkspd:2.0, spd:25, range:140, splash:50, color:'#e57373', sym:'💣' },
+        { id:'tankhunter', name:'Ист.танков', cost:4, hp:90, dmg:55, atkspd:1.1, spd:30, range:25, color:'#ff8a65', antiTank:true, sym:'🗡️' },
+        { id:'assaulteng', name:'Шт.инженер', cost:4, hp:110, dmg:22, atkspd:1.0, spd:35, range:30, color:'#ffb74d', placeFort:true, fortTime:2.0, antiInf:true, sym:'🧨' }
+    ];
+
+    // ---------- Состояние игры ----------
+    let difficulty = 'normal';
+    let gamePhase = 'preparation'; // 'preparation' | 'battle'
+    let preparationTimer = 25;
+    let playerRes = { pts: 4, rate: 0.5, wh: 0 };
+    let enemyRes = { pts: 4, rate: 0.5, wh: 0 };
+    let playerHQ = { hp: 200, max: 200 };
+    let enemyHQ = { hp: 200, max: 200 };
+    let pointsOfInterest = [];
+    let units = [];
+    let uid = 0;
+
+    // Способности
+    let abilityCd = 0, abilityActive = false, abilityTimer = 0;
+    let retreatCd = 0, retreatActive = false, retreatTimer = 0;
+    let smokeCd = 0, smokeActive = false, smokeTimer = 0, smokePos = null;
+    let reconCd = 0, reconActive = false, reconTimer = 0;
+    let breakoutCd = 0, breakoutActive = false, breakoutTimer = 0;
+
+    // Выбор карты и управление
+    let selectedCard = null, isDragging = false, ghostX, ghostY;
+    let selectedUnits = [], selectionRect = null, isSelecting = false, selStartX, selStartY;
+
+    // AI
+    let aiSpawnTimer = 0, AI_SPAWN_INT = 3.5, aiHpMult = 1.0;
+    let lastTime = performance.now();
+
+    // ---------- Функции ----------
+    function initPoints() {
+        pointsOfInterest = [];
+        for (let l = 0; l < 6; l++) {
+            pointsOfInterest.push({
+                type: 'warehouse', lane: l, x: MID_X, y: LANES_Y[l],
+                owner: 'neutral', capProg: 0, capTarget: null
+            });
+        }
+        pointsOfInterest.push({ type:'fort', lane:1, x:250, y:LANES_Y[1], owner:'neutral', capProg:0, capTarget:null, hp:150, max:150 });
+        pointsOfInterest.push({ type:'fort', lane:4, x:550, y:LANES_Y[4], owner:'neutral', capProg:0, capTarget:null, hp:150, max:150 });
+    }
+
+    function getFortAt(lane, x, y) {
+        return pointsOfInterest.find(p => p.type === 'fort' && p.lane === lane && Math.hypot(p.x - x, p.y - y) < 25);
+    }
+
+    function createUnit(faction, typeId, lane, x, y) {
+        let card = CARD_TYPES.find(c => c.id === typeId);
+        if (!card) return null;
+        let hpMul = faction === 'enemy' ? aiHpMult : 1;
+        return {
+            id: uid++, faction, type: typeId, lane, x, y,
+            hp: card.hp * hpMul, maxHp: card.hp * hpMul,
+            dmg: card.dmg, atkSpd: card.atkspd, atkCd: 0,
+            spd: card.spd, range: card.range, target: null,
+            color: card.color, sym: card.sym,
+            armor: card.armor || 0, antiInf: card.antiInf || false,
+            antiTank: card.antiTank || false, splash: card.splash || 0,
+            placeFort: card.placeFort || false, fortTime: card.fortTime || 3.0,
+            fortBuilt: false, fortTimer: 0,
+            retreating: false, moveTx: null, hold: false,
+            repairTarget: null,
+            xp: 0, level: 0,
+            lastAttackerId: null, attackFlash: 0,
+            encirclementTimer: 0
+        };
+    }
+
+    function canPlace(faction, x, y) {
+        if (faction === 'player' && x > MID_X - 10) return false;
+        if (faction === 'enemy' && x < MID_X + 10) return false;
+        for (let u of units) if (Math.hypot(u.x - x, u.y - y) < 20) return false;
+        for (let p of pointsOfInterest) if (p.type === 'fort' && Math.hypot(p.x - x, p.y - y) < 28) return false;
+        return true;
+    }
+
+    function spend(faction, amt) {
+        if (faction === 'player') {
+            if (playerRes.pts >= amt) { playerRes.pts -= amt; return true; }
+        } else {
+            if (enemyRes.pts >= amt) { enemyRes.pts -= amt; return true; }
+        }
+        return false;
+    }
+
+    function placeUnit(faction, typeId, lane, x, y) {
+        if (!canPlace(faction, x, y)) return false;
+        let card = CARD_TYPES.find(c => c.id === typeId);
+        if (gamePhase === 'battle' && !spend(faction, card.cost)) return false;
+        if (gamePhase === 'preparation' && faction === 'player' && units.filter(u => u.faction === 'player').length >= 10) return false;
+        units.push(createUnit(faction, typeId, lane, x, y));
+        return true;
+    }
+
+    function isSupplied(unit) {
+        if (gamePhase !== 'battle') return true;
+        if (unit.faction === 'player') {
+            let enemiesOnLane = units.filter(u => u.faction === 'enemy' && u.lane === unit.lane && u.x < unit.x && u.hp > 0);
+            return enemiesOnLane.length === 0;
+        } else {
+            let playersOnLane = units.filter(u => u.faction === 'player' && u.lane === unit.lane && u.x > unit.x && u.hp > 0);
+            return playersOnLane.length === 0;
+        }
+    }
+
+    function updateCaptures(dt) {
+        for (let p of pointsOfInterest) {
+            let playerN = units.filter(u => u.faction === 'player' && u.lane === p.lane && Math.hypot(u.x - p.x, u.y - p.y) < 40);
+            let enemyN = units.filter(u => u.faction === 'enemy' && u.lane === p.lane && Math.hypot(u.x - p.x, u.y - p.y) < 40);
+            if (playerN.length > 0 && enemyN.length === 0) {
+                if (p.owner !== 'player') {
+                    if (p.capTarget !== 'player') { p.capTarget = 'player'; p.capProg = 0; }
+                    p.capProg += dt;
+                    if (p.capProg >= 3.0) {
+                        if (p.owner === 'enemy') enemyRes.wh--;
+                        if (p.owner === 'neutral' && p.type === 'warehouse') playerRes.wh++;
+                        p.owner = 'player'; p.capTarget = null; p.capProg = 0;
+                        updateRates();
+                    }
+                }
+            } else if (enemyN.length > 0 && playerN.length === 0) {
+                if (p.owner !== 'enemy') {
+                    if (p.capTarget !== 'enemy') { p.capTarget = 'enemy'; p.capProg = 0; }
+                    p.capProg += dt;
+                    if (p.capProg >= 3.0) {
+                        if (p.owner === 'player') playerRes.wh--;
+                        if (p.owner === 'neutral' && p.type === 'warehouse') enemyRes.wh++;
+                        p.owner = 'enemy'; p.capTarget = null; p.capProg = 0;
+                        updateRates();
+                    }
+                }
+            } else {
+                if (p.capTarget) { p.capTarget = null; p.capProg = 0; }
+            }
+        }
+    }
+
+    function updateRates() {
+        playerRes.rate = 0.5 + playerRes.wh * 0.4;
+        enemyRes.rate = 0.5 + enemyRes.wh * 0.4;
+    }
+
+    function updateCombat(dt) {
+        for (let u of units) {
+            if (u.hp <= 0) continue;
+            u.attackFlash = Math.max(0, u.attackFlash - dt);
+            if (u.retreating) continue;
+            let enemies = units.filter(e => e.faction !== u.faction && e.lane === u.lane && e.hp > 0);
+            let forts = pointsOfInterest.filter(p => p.type === 'fort' && p.owner !== u.faction && p.owner !== 'neutral' && p.lane === u.lane && p.hp > 0);
+            let targets = [...enemies, ...forts].sort((a, b) => Math.abs(u.x - a.x) - Math.abs(u.x - b.x));
+            let target = targets[0];
+            if (target && Math.abs(u.x - target.x) <= u.range) {
+                u.target = target;
+                u.atkCd -= dt;
+                if (u.atkCd <= 0) {
+                    let dmg = u.dmg * (u.faction === 'player' && abilityActive ? 1.3 : 1) * (1 + u.level * 0.15);
+                    if (!isSupplied(u) && !(breakoutActive && u.faction === 'player')) dmg *= 0.5;
+                    if (target.armor && !u.antiTank) dmg *= (1 - target.armor);
+                    if (u.antiInf && target.type === 'infantry') dmg *= 1.6;
+                    if (u.antiTank && (target.type === 'tank' || target.type === 'td')) dmg *= 1.8;
+                    if (u.splash > 0 && target.lane !== undefined) {
+                        for (let e of enemies) {
+                            if (Math.abs(e.x - target.x) < u.splash && e.lane === u.lane) e.hp -= dmg * 0.6;
+                        }
+                    }
+                    target.hp -= dmg;
+                    target.lastAttackerId = u.id;
+                    u.attackFlash = 0.2;
+                    u.atkCd = u.atkSpd;
+                    if (target.hp <= 0) {
+                        if (target.type === 'fort') pointsOfInterest = pointsOfInterest.filter(p => p !== target);
+                        else if (target.lastAttackerId) {
+                            let killer = units.find(ku => ku.id === target.lastAttackerId);
+                            if (killer) { killer.xp++; if (killer.xp >= 3) { killer.xp = 0; killer.level = Math.min(killer.level + 1, 3); } }
+                        }
+                        u.target = null;
+                    }
+                }
+            } else {
+                u.target = null;
+            }
+        }
+        units = units.filter(u => u.hp > 0);
+    }
+
+    function moveUnits(dt) {
+        for (let u of units) {
+            if (u.hp <= 0) continue;
+            let supplied = isSupplied(u);
+            let spd = u.spd;
+            if (!supplied && !(breakoutActive && u.faction === 'player')) spd *= 0.4;
+            if (u.faction === 'player' && abilityActive) spd *= 1.5;
+            if (u.retreating) spd *= 2.2;
+            if (u.target) continue;
+            if (u.repairTarget && u.repairTarget.hp < u.repairTarget.max) {
+                let d = Math.abs(u.x - u.repairTarget.x);
+                if (d > 15) u.x += Math.sign(u.repairTarget.x - u.x) * spd * dt;
+                else u.repairTarget.hp = Math.min(u.repairTarget.max, u.repairTarget.hp + 15 * dt);
+                continue;
+            }
+            if (u.hold) continue;
+            if (u.moveTx !== null) {
+                let dx = u.moveTx - u.x;
+                if (Math.abs(dx) > 5) u.x += Math.sign(dx) * spd * dt;
+                else u.moveTx = null;
+                continue;
+            }
+            let dir = u.faction === 'player' ? 1 : -1;
+            if (u.retreating) dir = -dir;
+            u.x += dir * spd * dt;
+            u.x = Math.max(5, Math.min(W - 5, u.x));
+            if (u.faction === 'player' && u.x >= W - 8) { enemyHQ.hp -= 8; u.hp = 0; }
+            if (u.faction === 'enemy' && u.x <= 8) { playerHQ.hp -= 8; u.hp = 0; }
+        }
+        units = units.filter(u => u.hp > 0);
+    }
+
+    function updateEncirclement(dt) {
+        for (let u of units) {
+            if (u.hp <= 0) continue;
+            if (!isSupplied(u)) {
+                u.encirclementTimer += dt;
+                if (u.encirclementTimer >= 0.5) {
+                    u.hp -= u.maxHp * 0.02;
+                    u.encirclementTimer = 0;
+                }
+            } else {
+                u.encirclementTimer = 0;
+            }
+        }
+        units = units.filter(u => u.hp > 0);
+    }
+
+    function updateForts(dt) {
+        for (let u of units) {
+            if (u.placeFort && !u.fortBuilt && u.hp > 0 && gamePhase === 'battle') {
+                u.fortTimer += dt;
+                if (u.fortTimer >= u.fortTime) {
+                    if (!getFortAt(u.lane, u.x, u.y)) {
+                        pointsOfInterest.push({
+                            type: 'fort', lane: u.lane, x: u.x, y: u.y,
+                            owner: u.faction, capProg: 0, capTarget: null,
+                            hp: 150, max: 150
+                        });
+                    }
+                    u.fortBuilt = true;
+                }
+            }
+        }
+    }
+
+    function aiPrep() {
+        let budget = difficulty === 'easy' ? 14 : (difficulty === 'hard' ? 22 : 18);
+        let att = 0;
+        while (budget >= 2 && att < 50) {
+            let card = CARD_TYPES[Math.floor(Math.random() * CARD_TYPES.length)];
+            if (card.cost > budget) continue;
+            let lane = Math.floor(Math.random() * 6);
+            let x = MID_X + 30 + Math.random() * (W - MID_X - 60);
+            let y = LANES_Y[lane] + (Math.random() - 0.5) * 35;
+            if (canPlace('enemy', x, y)) {
+                units.push(createUnit('enemy', card.id, lane, x, y));
+                budget -= card.cost;
+            }
+            att++;
+        }
+    }
+
+    function aiBattleSpawn() {
+        if (enemyRes.pts < 2) return;
+        let affordable = CARD_TYPES.filter(c => c.cost <= enemyRes.pts);
+        if (!affordable.length) return;
+        let card = affordable[Math.floor(Math.random() * affordable.length)];
+        let lane = Math.floor(Math.random() * 6);
+        for (let i = 0; i < 10; i++) {
+            let x = MID_X + 25 + Math.random() * (W - MID_X - 50);
+            let y = LANES_Y[lane] + (Math.random() - 0.5) * 35;
+            if (canPlace('enemy', x, y) && spend('enemy', card.cost)) {
+                units.push(createUnit('enemy', card.id, lane, x, y));
+                return;
+            }
+        }
+    }
+
+    // ---------- Отрисовка ----------
+    function drawBackground() {
+        ctx.fillStyle = '#4a5d4a'; ctx.fillRect(0, 0, W, H);
+        ctx.strokeStyle = '#5a6b5a'; ctx.lineWidth = 0.5;
+        for (let y = 0; y < H; y += 40) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+        for (let x = 0; x < W; x += 40) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+        ctx.strokeStyle = '#8b8b5a'; ctx.lineWidth = 2; ctx.setLineDash([8, 8]);
+        ctx.beginPath(); ctx.moveTo(MID_X, 0); ctx.lineTo(MID_X, H); ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = '#2e7d32'; ctx.fillRect(0, H / 2 - 25, 18, 50);
+        ctx.fillStyle = '#c62828'; ctx.fillRect(W - 18, H / 2 - 25, 18, 50);
+    }
+
+    function drawPoints() {
+        for (let p of pointsOfInterest) {
+            let col = p.owner === 'player' ? '#4caf50' : (p.owner === 'enemy' ? '#f44336' : '#9e9e9e');
+            ctx.fillStyle = col;
+            ctx.beginPath();
+            if (p.type === 'warehouse') ctx.arc(p.x, p.y, 12, 0, 2 * Math.PI);
+            else ctx.rect(p.x - 12, p.y - 12, 24, 24);
+            ctx.fill();
+            ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+            if (p.capProg > 0) {
+                ctx.fillStyle = p.capTarget === 'player' ? '#81c784' : '#ef9a9a';
+                ctx.beginPath(); ctx.arc(p.x, p.y, 10 * (p.capProg / 3.0), 0, 2 * Math.PI); ctx.fill();
+            }
+            if (p.type === 'fort' && p.max) {
+                let hpP = p.hp / p.max;
+                ctx.fillStyle = '#222'; ctx.fillRect(p.x - 14, p.y - 18, 28, 5);
+                ctx.fillStyle = hpP > 0.6 ? '#4caf50' : '#ffeb3b';
+                ctx.fillRect(p.x - 14, p.y - 18, 28 * hpP, 5);
+            }
+        }
+    }
+
+    function drawUnits() {
+        for (let u of units) {
+            ctx.save(); ctx.translate(u.x, u.y);
+            let supplied = isSupplied(u);
+            ctx.shadowColor = !supplied && gamePhase === 'battle' ? '#f44336' : '#000';
+            ctx.shadowBlur = !supplied && gamePhase === 'battle' ? 15 : 8;
+            ctx.font = '20px sans-serif';
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText(u.sym, 0, 0);
+            if (u.attackFlash > 0) {
+                ctx.fillStyle = '#ffd54f'; ctx.globalAlpha = 0.7;
+                ctx.beginPath(); ctx.arc(0, 0, 14, 0, 2 * Math.PI); ctx.fill(); ctx.globalAlpha = 1;
+            }
+            if (selectedUnits.includes(u)) {
+                ctx.strokeStyle = '#ffd54f'; ctx.lineWidth = 3;
+                ctx.beginPath(); ctx.arc(0, 0, 16, 0, 2 * Math.PI); ctx.stroke();
+            }
+            if (gamePhase === 'battle') {
+                ctx.fillStyle = supplied ? '#4caf50' : '#f44336';
+                ctx.font = '14px sans-serif';
+                ctx.fillText(supplied ? '⛓️' : '⛔', 14, -14);
+            }
+            if (u.level > 0) {
+                ctx.fillStyle = 'gold'; ctx.font = '10px sans-serif';
+                ctx.fillText('⭐'.repeat(u.level), -12, -18);
+            }
+            ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0;
+            ctx.fillStyle = '#222'; ctx.fillRect(-12, -20, 24, 4);
+            let hpP = u.hp / u.maxHp;
+            ctx.fillStyle = hpP > 0.6 ? '#4caf50' : '#ffeb3b';
+            ctx.fillRect(-12, -20, 24 * hpP, 4);
+            ctx.restore();
+        }
+
+        // Линии снабжения для выделенных и окружённых
+        let showSupplyUnits = units.filter(u => selectedUnits.includes(u) || !isSupplied(u));
+        for (let u of showSupplyUnits) {
+            if (gamePhase !== 'battle') continue;
+            ctx.save();
+            ctx.strokeStyle = isSupplied(u) ? '#4caf50' : '#f44336';
+            ctx.lineWidth = 1.5;
+            ctx.setLineDash([5, 5]);
+            ctx.beginPath();
+            ctx.moveTo(u.x, u.y);
+            ctx.lineTo(u.faction === 'player' ? 0 : W, u.y);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.restore();
+        }
+    }
+
+    function drawGhost() {
+        if (selectedCard !== null && isDragging) {
+            let card = CARD_TYPES[selectedCard];
+            ctx.globalAlpha = 0.7;
+            ctx.font = '24px sans-serif'; ctx.textAlign = 'center';
+            ctx.fillStyle = card.color; ctx.fillText(card.sym, ghostX, ghostY);
+            ctx.globalAlpha = 1;
+        }
+    }
+
+    function drawSelectionRect() {
+        if (selectionRect) {
+            ctx.strokeStyle = '#ffd54f'; ctx.lineWidth = 2; ctx.setLineDash([4, 4]);
+            let x = Math.min(selectionRect.x1, selectionRect.x2);
+            let y = Math.min(selectionRect.y1, selectionRect.y2);
+            let w = Math.abs(selectionRect.x2 - selectionRect.x1);
+            let h = Math.abs(selectionRect.y2 - selectionRect.y1);
+            ctx.strokeRect(x, y, w, h);
+            ctx.setLineDash([]);
+        }
+    }
+
+    function render() {
+        drawBackground();
+        drawPoints();
+        drawUnits();
+        drawGhost();
+        drawSelectionRect();
+    }
+
+    // ---------- Ввод ----------
+    function getCoords(e) {
+        const rect = canvas.getBoundingClientRect();
+        const sx = W / rect.width, sy = H / rect.height;
+        let cx = e.touches ? e.touches[0].clientX : e.clientX;
+        let cy = e.touches ? e.touches[0].clientY : e.clientY;
+        return { x: (cx - rect.left) * sx, y: (cy - rect.top) * sy };
+    }
+
+    function onPointerDown(e) {
+        e.preventDefault();
+        const c = getCoords(e);
+        if (selectedCard !== null) {
+            ghostX = c.x; ghostY = c.y; isDragging = true; return;
+        }
+        isSelecting = true; selStartX = c.x; selStartY = c.y;
+        selectionRect = { x1: c.x, y1: c.y, x2: c.x, y2: c.y };
+    }
+
+    function onPointerMove(e) {
+        e.preventDefault();
+        if (isDragging) { const c = getCoords(e); ghostX = c.x; ghostY = c.y; return; }
+        if (isSelecting) { const c = getCoords(e); selectionRect.x2 = c.x; selectionRect.y2 = c.y; }
+    }
+
+    function onPointerUp(e) {
+        e.preventDefault();
+        if (isDragging) {
+            isDragging = false;
+            const c = getCoords(e);
+            let lane = -1, minDist = 35;
+            for (let i = 0; i < LANES_Y.length; i++) { let d = Math.abs(c.y - LANES_Y[i]); if (d < minDist) { minDist = d; lane = i; } }
+            if (lane === -1) return;
+            if (gamePhase === 'preparation') {
+                if (units.filter(u => u.faction === 'player').length >= 10) return;
+                placeUnit('player', CARD_TYPES[selectedCard].id, lane, c.x, c.y);
+            } else {
+                if (placeUnit('player', CARD_TYPES[selectedCard].id, lane, c.x, c.y)) {
+                    selectedCard = null; updateCardsSelection();
+                }
+            }
+            return;
+        }
+        if (!isSelecting) return;
+        isSelecting = false;
+        const c = getCoords(e);
+        const dx = c.x - selStartX, dy = c.y - selStartY;
+        if (Math.hypot(dx, dy) > 5) {
+            let x1 = Math.min(selStartX, c.x), y1 = Math.min(selStartY, c.y);
+            let x2 = Math.max(selStartX, c.x), y2 = Math.max(selStartY, c.y);
+            selectedUnits = units.filter(u => u.faction === 'player' && u.x >= x1 && u.x <= x2 && u.y >= y1 && u.y <= y2);
+        } else {
+            let clicked = units.find(u => u.faction === 'player' && Math.hypot(u.x - c.x, u.y - c.y) < 18);
+            if (clicked) selectedUnits = selectedUnits.includes(clicked) ? [clicked] : [clicked];
+            else {
+                let fort = pointsOfInterest.find(p => p.type === 'fort' && p.owner === 'player' && Math.hypot(p.x - c.x, p.y - c.y) < 25);
+                if (fort && selectedUnits.some(u => u.type === 'engineer' || u.type === 'assaulteng')) {
+                    selectedUnits.forEach(u => { if (u.type === 'engineer' || u.type === 'assaulteng') u.repairTarget = fort; });
+                } else if (selectedUnits.length > 0) {
+                    let targetX = Math.max(5, Math.min(W - 5, c.x));
+                    selectedUnits.forEach(u => { u.moveTx = targetX; u.hold = false; u.repairTarget = null; });
+                } else selectedUnits = [];
+            }
+        }
+        selectionRect = null;
+        selectedCountSpan.textContent = selectedUnits.length;
+    }
+
+    canvas.addEventListener('mousedown', onPointerDown);
+    canvas.addEventListener('mousemove', onPointerMove);
+    canvas.addEventListener('mouseup', onPointerUp);
+    canvas.addEventListener('touchstart', onPointerDown, { passive: false });
+    canvas.addEventListener('touchmove', onPointerMove, { passive: false });
+    canvas.addEventListener('touchend', onPointerUp);
+
+    // ---------- UI карточек ----------
+    function buildCardsUI() {
+        cardsContainer.innerHTML = '';
+        CARD_TYPES.forEach((c, i) => {
+            let div = document.createElement('div');
+            div.className = 'card';
+            div.innerHTML = `<span class="cost">${c.cost}</span><br>${c.sym} ${c.name}`;
+            div.addEventListener('click', (e) => {
+                e.stopPropagation();
+                selectedCard = selectedCard === i ? null : i;
+                updateCardsSelection();
+            });
+            cardsContainer.appendChild(div);
+        });
+    }
+
+    function updateCardsSelection() {
+        document.querySelectorAll('.card').forEach((el, i) => el.classList.toggle('selected', i === selectedCard));
+    }
+
+    function updateUI() {
+        playerHpBar.style.width = (playerHQ.hp / playerHQ.max * 100) + '%';
+        enemyHpBar.style.width = (enemyHQ.hp / enemyHQ.max * 100) + '%';
+        playerPointsSpan.textContent = Math.max(0, Math.floor(playerRes.pts));
+        enemyPointsSpan.textContent = Math.max(0, Math.floor(enemyRes.pts));
+        phaseText.textContent = gamePhase === 'preparation' ? `Подготовка ${Math.ceil(preparationTimer)}с` : 'Бой';
+        abilityBtn.classList.toggle('cooldown', abilityCd > 0);
+        retreatBtn.classList.toggle('cooldown', retreatCd > 0);
+        smokeBtn.classList.toggle('cooldown', smokeCd > 0);
+        reconBtn.classList.toggle('cooldown', reconCd > 0);
+        breakoutBtn.classList.toggle('cooldown', breakoutCd > 0);
+    }
+
+    // ---------- Обработчики кнопок ----------
+    abilityBtn.addEventListener('click', () => {
+        if (gamePhase !== 'battle' || abilityCd > 0) return;
+        abilityActive = true; abilityTimer = 5; abilityCd = 20;
+    });
+    retreatBtn.addEventListener('click', () => {
+        if (gamePhase !== 'battle' || retreatCd > 0) return;
+        retreatActive = true; retreatTimer = 4; retreatCd = 25;
+        units.forEach(u => { if (u.faction === 'player') { u.retreating = true; u.moveTx = null; u.hold = false; } });
+    });
+    stopBtn.addEventListener('click', () => {
+        selectedUnits.forEach(u => { u.moveTx = null; u.hold = false; u.repairTarget = null; });
+        selectedUnits = []; selectedCountSpan.textContent = '0';
+    });
+    holdBtn.addEventListener('click', () => {
+        selectedUnits.forEach(u => { u.hold = !u.hold; u.moveTx = null; u.repairTarget = null; });
+    });
+    smokeBtn.addEventListener('click', () => {
+        if (gamePhase !== 'battle' || smokeCd > 0) return;
+        let gen = units.find(u => u.faction === 'player' && u.type === 'general');
+        if (!gen) return;
+        smokePos = { x: gen.x, y: gen.y, lane: gen.lane };
+        smokeActive = true; smokeTimer = 6; smokeCd = 20;
+    });
+    reconBtn.addEventListener('click', () => {
+        if (gamePhase !== 'battle' || reconCd > 0) return;
+        reconActive = true; reconTimer = 5; reconCd = 25;
+    });
+    breakoutBtn.addEventListener('click', () => {
+        if (gamePhase !== 'battle' || breakoutCd > 0) return;
+        breakoutActive = true; breakoutTimer = 4; breakoutCd = 15;
+    });
+
+    // ---------- Старт и цикл ----------
+    function resetGame() {
+        playerRes = { pts: 4, rate: 0.5, wh: 0 };
+        enemyRes = { pts: 4, rate: 0.5, wh: 0 };
+        playerHQ = { hp: 200, max: 200 };
+        enemyHQ = { hp: 200, max: 200 };
+        units = []; pointsOfInterest = [];
+        abilityCd = 0; abilityActive = false; retreatCd = 0; retreatActive = false;
+        smokeCd = 0; smokeActive = false; reconCd = 0; reconActive = false;
+        breakoutCd = 0; breakoutActive = false;
+        selectedCard = null; isDragging = false; selectedUnits = [];
+        gamePhase = 'preparation'; preparationTimer = 25;
+        initPoints(); updateRates();
+        // Генерал
+        units.push({
+            id: uid++, faction: 'player', type: 'general', lane: 0, x: 40, y: LANES_Y[0],
+            hp: 200, maxHp: 200, dmg: 0, atkSpd: 99, atkCd: 0, spd: 35, range: 0,
+            sym: '⭐', color: '#ffd54f', armor: 0,
+            placeFort: false, fortBuilt: true, retreating: false,
+            moveTx: null, hold: false, repairTarget: null,
+            xp: 0, level: 0, attackFlash: 0, encirclementTimer: 0
+        });
+        buildCardsUI(); updateCardsSelection();
+        winMessage.style.display = 'none';
+    }
+
+    function startGame() {
+        difficulty = difficultySelect.value;
+        if (difficulty === 'easy') { AI_SPAWN_INT = 5.5; aiHpMult = 0.8; playerRes.pts = 6; enemyRes.pts = 3; }
+        else if (difficulty === 'hard') { AI_SPAWN_INT = 2.5; aiHpMult = 1.2; playerRes.pts = 3; enemyRes.pts = 5; }
+        else { AI_SPAWN_INT = 3.8; aiHpMult = 1.0; playerRes.pts = 4; enemyRes.pts = 4; }
+        menu.style.display = 'none';
+        gameDiv.style.display = 'flex';
+        resetGame();
+        lastTime = performance.now();
+        requestAnimationFrame(gameLoop);
+    }
+
+    startBtn.addEventListener('click', startGame);
+
+    function gameLoop(now) {
+        try {
+            let dt = Math.min((now - lastTime) / 1000, 0.15);
+            lastTime = now;
+
+            if (gamePhase === 'preparation') {
+                preparationTimer -= dt;
+                if (preparationTimer <= 0.01) {
+                    gamePhase = 'battle';
+                    aiPrep();
+                }
+                render(); updateUI();
+                requestAnimationFrame(gameLoop);
+                return;
+            }
+
+            // Фаза боя
+            playerRes.pts = Math.min(playerRes.pts + playerRes.rate * dt, 20);
+            enemyRes.pts = Math.min(enemyRes.pts + enemyRes.rate * dt, 20);
+            abilityCd = Math.max(0, abilityCd - dt);
+            retreatCd = Math.max(0, retreatCd - dt);
+            smokeCd = Math.max(0, smokeCd - dt);
+            reconCd = Math.max(0, reconCd - dt);
+            breakoutCd = Math.max(0, breakoutCd - dt);
+
+            if (abilityActive) { abilityTimer -= dt; if (abilityTimer <= 0) abilityActive = false; }
+            if (retreatActive) { retreatTimer -= dt; if (retreatTimer <= 0) { units.forEach(u => { if (u.faction === 'player') u.retreating = false; }); retreatActive = false; } }
+            if (smokeActive) { smokeTimer -= dt; if (smokeTimer <= 0) smokeActive = false; }
+            if (reconActive) { reconTimer -= dt; if (reconTimer <= 0) reconActive = false; }
+            if (breakoutActive) { breakoutTimer -= dt; if (breakoutTimer <= 0) breakoutActive = false; }
+
+            let gen = units.find(u => u.faction === 'player' && u.type === 'general');
+            if (gen && gen.hp > 0) {
+                units.forEach(u => {
+                    if (u.faction === 'player' && u !== gen && Math.hypot(u.x - gen.x, u.y - gen.y) < 90) {
+                        let baseCard = CARD_TYPES.find(c => c.id === u.type);
+                        if (baseCard) {
+                            u.atkSpd = baseCard.atkspd * 0.85;
+                            u.dmg = baseCard.dmg * 1.1;
+                        }
+                    }
+                });
+            }
+
+            if (smokeActive && smokePos) {
+                units.forEach(u => {
+                    if (u.faction === 'enemy' && u.lane === smokePos.lane && Math.abs(u.x - smokePos.x) < 70) {
+                        u.range = 0;
+                    }
+                });
+            }
+
+            aiSpawnTimer += dt;
+            if (aiSpawnTimer >= AI_SPAWN_INT) { aiSpawnTimer = 0; aiBattleSpawn(); }
+
+            updateCaptures(dt);
+            updateEncirclement(dt);
+            updateCombat(dt);
+            moveUnits(dt);
+            updateForts(dt);
+
+            if (enemyHQ.hp <= 0) { winMessage.textContent = 'ПОБЕДА!'; endGame(); return; }
+            if (playerHQ.hp <= 0) { winMessage.textContent = 'ПОРАЖЕНИЕ'; endGame(); return; }
+
+            render(); updateUI();
+            requestAnimationFrame(gameLoop);
+        } catch (e) {
+            console.error('Ошибка в игровом цикле:', e);
+            // Попробуем продолжить цикл, чтобы игра не вставала
+            requestAnimationFrame(gameLoop);
+        }
+    }
+
+    function endGame() {
+        winMessage.style.display = 'block';
+        setTimeout(() => {
+            winMessage.style.display = 'none';
+            gameDiv.style.display = 'none';
+            menu.style.display = 'flex';
+        }, 3000);
+    }
+
+    // Инициализация меню
+    menu.style.display = 'flex';
+    gameDiv.style.display = 'none';
+})();
+</script>
+</body>
+</html>
