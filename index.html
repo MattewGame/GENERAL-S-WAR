@@ -3,122 +3,45 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0, touch-action=manipulation">
-    <title>General's War: Frontline v5.4 – фикс мобильного размещения</title>
+    <title>General's War: Frontline v5.5 – Усиленный ИИ</title>
     <style>
-        * {
-            box-sizing: border-box; margin: 0; padding: 0;
-            -webkit-tap-highlight-color: transparent; user-select: none;
-            font-family: 'Segoe UI', system-ui, sans-serif;
-        }
+        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; user-select: none; font-family: 'Segoe UI', system-ui, sans-serif; }
         body { background: #121212; display: flex; justify-content: center; align-items: center; min-height: 100vh; touch-action: pan-y; }
-        #menu {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: #1e1e1e; display: flex; flex-direction: column;
-            align-items: center; justify-content: center; gap: 20px; z-index: 200; color: #eee;
-        }
+        #menu { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #1e1e1e; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; z-index: 200; color: #eee; }
         #menu h1 { font-size: 32px; color: #ffd54f; text-shadow: 0 0 10px #000; }
-        #menu button {
-            background: #3e3e3e; border: 2px solid #ffd54f;
-            color: #ffd54f; font-size: 20px; padding: 12px 30px;
-            border-radius: 12px; cursor: pointer; font-weight: bold;
-        }
-        #menu select {
-            background: #3e3e3e; border: 2px solid #ffd54f;
-            color: #ffd54f; font-size: 18px; padding: 8px 16px; border-radius: 8px;
-        }
-        .game-container {
-            width: 100%; max-width: 800px; background: #2d2d2d;
-            border: 2px solid #5c5c5c; border-radius: 16px; overflow: hidden;
-            display: flex; flex-direction: column; color: #eee;
-        }
-        .info-panel {
-            padding: 8px 12px; background: #1f1f1f; border-bottom: 1px solid #444;
-            display: flex; justify-content: space-between; align-items: center;
-            font-size: 13px; font-weight: bold;
-        }
+        #menu button { background: #3e3e3e; border: 2px solid #ffd54f; color: #ffd54f; font-size: 20px; padding: 12px 30px; border-radius: 12px; cursor: pointer; font-weight: bold; }
+        #menu select { background: #3e3e3e; border: 2px solid #ffd54f; color: #ffd54f; font-size: 18px; padding: 8px 16px; border-radius: 8px; }
+        .game-container { width: 100%; max-width: 800px; background: #2d2d2d; border: 2px solid #5c5c5c; border-radius: 16px; overflow: hidden; display: flex; flex-direction: column; color: #eee; }
+        .info-panel { padding: 8px 12px; background: #1f1f1f; border-bottom: 1px solid #444; display: flex; justify-content: space-between; align-items: center; font-size: 13px; font-weight: bold; }
         .hq-health { display: flex; align-items: center; gap: 5px; }
-        .hq-bar {
-            width: 60px; height: 10px; background: #3a3a3a;
-            border-radius: 5px; overflow: hidden; border: 1px solid #555;
-        }
+        .hq-bar { width: 60px; height: 10px; background: #3a3a3a; border-radius: 5px; overflow: hidden; border: 1px solid #555; }
         .hq-fill { height: 100%; background: #4caf50; width: 100%; transition: width 0.25s; }
         .hq-fill.enemy { background: #f44336; }
         .resources { display: flex; align-items: center; gap: 4px; color: #ffd54f; font-size: 14px; }
-        canvas {
-            display: block; width: 100%; height: auto; background: #3a4a3a;
-            touch-action: none; border-bottom: 1px solid #555;
-        }
-        .controls {
-            padding: 8px; background: #1f1f1f;
-            display: flex; flex-direction: column; gap: 6px;
-        }
+        canvas { display: block; width: 100%; height: auto; background: #3a4a3a; touch-action: none; border-bottom: 1px solid #555; }
+        .controls { padding: 8px; background: #1f1f1f; display: flex; flex-direction: column; gap: 6px; }
         .cards-row { display: flex; gap: 4px; flex-wrap: wrap; justify-content: center; }
-        .card {
-            flex: 0 0 auto; min-width: 60px; background: #3e3e3e;
-            border: 2px solid #555; border-radius: 8px; padding: 5px 3px;
-            text-align: center; font-size: 10px; font-weight: bold;
-            cursor: pointer; transition: all 0.15s; color: #ccc;
-        }
+        .card { flex: 0 0 auto; min-width: 60px; background: #3e3e3e; border: 2px solid #555; border-radius: 8px; padding: 5px 3px; text-align: center; font-size: 10px; font-weight: bold; cursor: pointer; transition: all 0.15s; color: #ccc; }
         .card.selected { border-color: #ffd54f; background: #4a4a3a; transform: scale(1.05); }
-        .card .cost {
-            background: #ffd54f; color: #000; border-radius: 50%;
-            width: 16px; height: 16px; display: inline-flex;
-            align-items: center; justify-content: center; font-size: 10px; margin-bottom: 2px;
-        }
+        .card .cost { background: #ffd54f; color: #000; border-radius: 50%; width: 16px; height: 16px; display: inline-flex; align-items: center; justify-content: center; font-size: 10px; margin-bottom: 2px; }
         .btn-row { display: flex; gap: 5px; flex-wrap: wrap; justify-content: center; }
-        .ability-btn, .retreat-btn, .order-btn, .smoke-btn, .recon-btn, .breakout-btn {
-            border: none; border-radius: 8px; padding: 6px 8px;
-            font-weight: bold; font-size: 11px; cursor: pointer;
-            flex: 1 1 auto; min-width: 60px; color: white;
-        }
-        .ability-btn { background: #b71c1c; } .retreat-btn { background: #1565c0; }
-        .order-btn { background: #2e7d32; } .smoke-btn { background: #5d4037; }
-        .recon-btn { background: #00838f; } .breakout-btn { background: #f57c00; }
+        .ability-btn, .retreat-btn, .order-btn, .smoke-btn, .recon-btn, .breakout-btn { border: none; border-radius: 8px; padding: 6px 8px; font-weight: bold; font-size: 11px; cursor: pointer; flex: 1 1 auto; min-width: 60px; color: white; }
+        .ability-btn { background: #b71c1c; } .retreat-btn { background: #1565c0; } .order-btn { background: #2e7d32; } .smoke-btn { background: #5d4037; } .recon-btn { background: #00838f; } .breakout-btn { background: #f57c00; }
         .cooldown { background: #555 !important; color: #aaa !important; pointer-events: none; }
         .selected-count { text-align: center; font-size: 12px; color: #aaa; }
-        #winMessage {
-            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            background: rgba(20,20,20,0.95); color: white; padding: 20px 35px;
-            border-radius: 16px; font-size: 26px; font-weight: bold; z-index: 150;
-            display: none; border: 2px solid #ffd54f;
-        }
+        #winMessage { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(20,20,20,0.95); color: white; padding: 20px 35px; border-radius: 16px; font-size: 26px; font-weight: bold; z-index: 150; display: none; border: 2px solid #ffd54f; }
         #game { display: none; }
     </style>
 </head>
 <body>
-<div id="menu">
-    <h1>⚔️ GENERAL'S WAR v5.4</h1>
-    <label for="difficulty">Сложность:</label>
-    <select id="difficulty">
-        <option value="easy">Легко</option>
-        <option value="normal" selected>Нормально</option>
-        <option value="hard">Сложно</option>
-    </select>
-    <button id="startBtn">Начать бой</button>
-</div>
-
+<div id="menu"><h1>⚔️ GENERAL'S WAR v5.5</h1><label for="difficulty">Сложность:</label><select id="difficulty"><option value="easy">Легко</option><option value="normal" selected>Нормально</option><option value="hard">Сложно</option></select><button id="startBtn">Начать бой</button></div>
 <div id="game" class="game-container">
-    <div class="info-panel">
-        <div class="hq-health"><span>🏰</span><div class="hq-bar"><div id="playerHpBar" class="hq-fill"></div></div></div>
-        <div class="resources"><span>⚡</span><span id="playerPoints">0</span></div>
-        <span id="phaseText">Подготовка</span>
-        <div class="resources"><span>⚡</span><span id="enemyPoints">0</span></div>
-        <div class="hq-health"><div class="hq-bar"><div id="enemyHpBar" class="hq-fill enemy"></div></div><span>🏰</span></div>
-    </div>
+    <div class="info-panel"><div class="hq-health"><span>🏰</span><div class="hq-bar"><div id="playerHpBar" class="hq-fill"></div></div></div><div class="resources"><span>⚡</span><span id="playerPoints">0</span></div><span id="phaseText">Подготовка</span><div class="resources"><span>⚡</span><span id="enemyPoints">0</span></div><div class="hq-health"><div class="hq-bar"><div id="enemyHpBar" class="hq-fill enemy"></div></div><span>🏰</span></div></div>
     <canvas id="gameCanvas" width="800" height="500"></canvas>
     <div class="controls">
         <div class="cards-row" id="cardsContainer"></div>
-        <div class="btn-row">
-            <button class="ability-btn" id="abilityBtn">⚔️ Атака</button>
-            <button class="retreat-btn" id="retreatBtn">↩️ Отход</button>
-            <button class="order-btn" id="stopBtn">🛑 Стоп</button>
-            <button class="order-btn" id="holdBtn">🛡️ Держать</button>
-        </div>
-        <div class="btn-row">
-            <button class="smoke-btn" id="smokeBtn">💨 Дым</button>
-            <button class="recon-btn" id="reconBtn">🔭 Разведка</button>
-            <button class="breakout-btn" id="breakoutBtn">⚡ Прорыв</button>
-        </div>
+        <div class="btn-row"><button class="ability-btn" id="abilityBtn">⚔️ Атака</button><button class="retreat-btn" id="retreatBtn">↩️ Отход</button><button class="order-btn" id="stopBtn">🛑 Стоп</button><button class="order-btn" id="holdBtn">🛡️ Держать</button></div>
+        <div class="btn-row"><button class="smoke-btn" id="smokeBtn">💨 Дым</button><button class="recon-btn" id="reconBtn">🔭 Разведка</button><button class="breakout-btn" id="breakoutBtn">⚡ Прорыв</button></div>
         <div class="selected-count">Выбрано: <span id="selectedCount">0</span></div>
     </div>
 </div>
@@ -212,25 +135,18 @@
         }
     }
 
-    function getTerrainAt(x, y) {
-        return terrainTiles.find(t => x >= t.x && x <= t.x + t.w && y >= t.y && y <= t.y + t.h);
-    }
+    function getTerrainAt(x, y) { return terrainTiles.find(t => x >= t.x && x <= t.x + t.w && y >= t.y && y <= t.y + t.h); }
 
     function initPoints() {
         pointsOfInterest = [];
         for (let l = 0; l < 6; l++) {
-            pointsOfInterest.push({
-                type: 'warehouse', lane: l, x: MID_X, y: LANES_Y[l],
-                owner: 'neutral', capProg: 0, capTarget: null
-            });
+            pointsOfInterest.push({ type: 'warehouse', lane: l, x: MID_X, y: LANES_Y[l], owner: 'neutral', capProg: 0, capTarget: null });
         }
         pointsOfInterest.push({ type:'fort', lane:1, x:250, y:LANES_Y[1], owner:'neutral', capProg:0, capTarget:null, hp:150, max:150 });
         pointsOfInterest.push({ type:'fort', lane:4, x:550, y:LANES_Y[4], owner:'neutral', capProg:0, capTarget:null, hp:150, max:150 });
     }
 
-    function getFortAt(lane, x, y) {
-        return pointsOfInterest.find(p => p.type === 'fort' && p.lane === lane && Math.hypot(p.x - x, p.y - y) < 25);
-    }
+    function getFortAt(lane, x, y) { return pointsOfInterest.find(p => p.type === 'fort' && p.lane === lane && Math.hypot(p.x - x, p.y - y) < 25); }
 
     function createUnit(faction, typeId, lane, x, y) {
         let card = CARD_TYPES.find(c => c.id === typeId);
@@ -265,11 +181,8 @@
     }
 
     function spend(faction, amt) {
-        if (faction === 'player') {
-            if (playerRes.pts >= amt) { playerRes.pts -= amt; return true; }
-        } else {
-            if (enemyRes.pts >= amt) { enemyRes.pts -= amt; return true; }
-        }
+        if (faction === 'player') { if (playerRes.pts >= amt) { playerRes.pts -= amt; return true; } }
+        else { if (enemyRes.pts >= amt) { enemyRes.pts -= amt; return true; } }
         return false;
     }
 
@@ -285,11 +198,9 @@
     function isSupplied(unit) {
         if (gamePhase !== 'battle') return true;
         if (unit.faction === 'player') {
-            let enemiesOnLane = units.filter(u => u.faction === 'enemy' && u.lane === unit.lane && u.x < unit.x && u.hp > 0);
-            return enemiesOnLane.length === 0;
+            return !units.some(u => u.faction === 'enemy' && u.lane === unit.lane && u.x < unit.x && u.hp > 0);
         } else {
-            let playersOnLane = units.filter(u => u.faction === 'player' && u.lane === unit.lane && u.x > unit.x && u.hp > 0);
-            return playersOnLane.length === 0;
+            return !units.some(u => u.faction === 'player' && u.lane === unit.lane && u.x > unit.x && u.hp > 0);
         }
     }
 
@@ -343,8 +254,9 @@
                 u.target = target;
                 u.atkCd -= dt;
                 if (u.atkCd <= 0) {
+                    let supplied = isSupplied(u);
+                    if (!supplied && !(breakoutActive && u.faction === 'player')) continue; // в окружении не атакует (если не прорыв)
                     let dmg = u.dmg * (u.faction === 'player' && abilityActive ? 1.3 : 1) * (1 + u.level * 0.15);
-                    if (!isSupplied(u) && !(breakoutActive && u.faction === 'player')) dmg *= 0.5;
                     if (target.armor && !u.antiTank) dmg *= (1 - target.armor);
                     if (u.antiInf && target.type === 'infantry') dmg *= 1.6;
                     if (u.antiTank && (target.type === 'tank' || target.type === 'td')) dmg *= 1.8;
@@ -415,7 +327,7 @@
             if (u.hp <= 0) continue;
             if (!isSupplied(u)) {
                 u.encirclementTimer += dt;
-                if (u.encirclementTimer >= 0.5) { u.hp -= u.maxHp * 0.02; u.encirclementTimer = 0; }
+                if (u.encirclementTimer >= 0.3) { u.hp -= u.maxHp * 0.04; u.encirclementTimer = 0; }
             } else u.encirclementTimer = 0;
         }
         units = units.filter(u => u.hp > 0);
@@ -439,6 +351,7 @@
         }
     }
 
+    // Усиленный ИИ
     function aiPrep() {
         let budget = difficulty === 'easy' ? 14 : (difficulty === 'hard' ? 22 : 18);
         let att = 0;
@@ -460,8 +373,31 @@
         if (enemyRes.pts < 2) return;
         let affordable = CARD_TYPES.filter(c => c.cost <= enemyRes.pts);
         if (!affordable.length) return;
-        let card = affordable[Math.floor(Math.random() * affordable.length)];
+        // AI предпочитает быстрых юнитов для флангов
+        let preferFlank = Math.random() < 0.6;
+        let card;
+        if (preferFlank) {
+            let flankers = affordable.filter(c => c.spd >= 40 || c.id === 'assaulteng');
+            card = flankers.length ? flankers[Math.floor(Math.random() * flankers.length)] : affordable[Math.floor(Math.random() * affordable.length)];
+        } else {
+            card = affordable[Math.floor(Math.random() * affordable.length)];
+        }
         let lane = Math.floor(Math.random() * 6);
+        // Попытка зайти в тыл: если на этой линии есть игрок далеко впереди, спавнимся ближе к штабу игрока
+        let playerUnitOnLane = units.find(u => u.faction === 'player' && u.lane === lane && u.x > MID_X);
+        if (playerUnitOnLane && Math.random() < 0.7) {
+            // спавнимся левее этого игрока (в тыл)
+            for (let i = 0; i < 10; i++) {
+                let x = playerUnitOnLane.x - 60 - Math.random() * 80;
+                if (x < 15) x = 15;
+                let y = LANES_Y[lane] + (Math.random() - 0.5) * 35;
+                if (canPlace('enemy', x, y) && spend('enemy', card.cost)) {
+                    units.push(createUnit('enemy', card.id, lane, x, y));
+                    return;
+                }
+            }
+        }
+        // Обычный спавн
         for (let i = 0; i < 10; i++) {
             let x = MID_X + 25 + Math.random() * (W - MID_X - 50);
             let y = LANES_Y[lane] + (Math.random() - 0.5) * 35;
@@ -472,19 +408,32 @@
         }
     }
 
+    // AI использует способности
+    function aiAbilities() {
+        if (difficulty === 'easy') return;
+        let gen = units.find(u => u.faction === 'enemy' && u.type === 'general');
+        if (!gen) return;
+        if (smokeCd <= 0 && Math.random() < 0.02) {
+            smokeActive = true; smokeTimer = 6; smokeCd = 20;
+            smokePos = { x: gen.x, y: gen.y, lane: gen.lane };
+        }
+        if (breakoutCd <= 0) {
+            let encircled = units.filter(u => u.faction === 'enemy' && !isSupplied(u));
+            if (encircled.length > 0 && Math.random() < 0.1) {
+                breakoutActive = true; breakoutTimer = 4; breakoutCd = 15;
+            }
+        }
+    }
+
     function drawTerrain() {
         for (let t of terrainTiles) {
             let type = TERRAIN_TYPES[t.type];
             if (!type) continue;
-            ctx.fillStyle = type.color;
-            ctx.globalAlpha = 0.3;
+            ctx.fillStyle = type.color; ctx.globalAlpha = 0.3;
             ctx.fillRect(t.x, t.y, t.w, t.h);
             ctx.globalAlpha = 1;
-            ctx.font = '20px sans-serif';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillStyle = '#fff';
-            ctx.fillText(type.symbol, t.x + t.w/2, t.y + t.h/2);
+            ctx.font = '20px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillStyle = '#fff'; ctx.fillText(type.symbol, t.x + t.w/2, t.y + t.h/2);
         }
     }
 
@@ -529,8 +478,7 @@
             let supplied = isSupplied(u);
             ctx.shadowColor = !supplied && gamePhase === 'battle' ? '#f44336' : '#000';
             ctx.shadowBlur = !supplied && gamePhase === 'battle' ? 15 : 8;
-            ctx.font = '20px sans-serif';
-            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.font = '20px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
             ctx.fillText(u.sym, 0, 0);
             if (u.attackFlash > 0) {
                 ctx.fillStyle = '#ffd54f'; ctx.globalAlpha = 0.7;
@@ -561,10 +509,8 @@
             if (gamePhase !== 'battle') continue;
             ctx.save();
             ctx.strokeStyle = isSupplied(u) ? '#4caf50' : '#f44336';
-            ctx.lineWidth = 1.5;
-            ctx.setLineDash([5, 5]);
-            ctx.beginPath();
-            ctx.moveTo(u.x, u.y);
+            ctx.lineWidth = 1.5; ctx.setLineDash([5, 5]);
+            ctx.beginPath(); ctx.moveTo(u.x, u.y);
             ctx.lineTo(u.faction === 'player' ? 0 : W, u.y);
             ctx.stroke();
             ctx.setLineDash([]);
@@ -594,37 +540,22 @@
         }
     }
 
-    function render() {
-        drawBackground();
-        drawPoints();
-        drawUnits();
-        drawGhost();
-        drawSelectionRect();
-    }
+    function render() { drawBackground(); drawPoints(); drawUnits(); drawGhost(); drawSelectionRect(); }
 
     function getCoords(e) {
         const rect = canvas.getBoundingClientRect();
         const sx = W / rect.width, sy = H / rect.height;
         let cx, cy;
-        if (e.touches && e.touches.length > 0) {
-            cx = e.touches[0].clientX;
-            cy = e.touches[0].clientY;
-        } else if (e.changedTouches && e.changedTouches.length > 0) {
-            cx = e.changedTouches[0].clientX;
-            cy = e.changedTouches[0].clientY;
-        } else {
-            cx = e.clientX;
-            cy = e.clientY;
-        }
+        if (e.touches && e.touches.length > 0) { cx = e.touches[0].clientX; cy = e.touches[0].clientY; }
+        else if (e.changedTouches && e.changedTouches.length > 0) { cx = e.changedTouches[0].clientX; cy = e.changedTouches[0].clientY; }
+        else { cx = e.clientX; cy = e.clientY; }
         return { x: (cx - rect.left) * sx, y: (cy - rect.top) * sy };
     }
 
     function onPointerDown(e) {
         e.preventDefault();
         const c = getCoords(e);
-        if (selectedCard !== null) {
-            ghostX = c.x; ghostY = c.y; isDragging = true; return;
-        }
+        if (selectedCard !== null) { ghostX = c.x; ghostY = c.y; isDragging = true; return; }
         isSelecting = true; selStartX = c.x; selStartY = c.y;
         selectionRect = { x1: c.x, y1: c.y, x2: c.x, y2: c.y };
     }
@@ -645,9 +576,7 @@
                 if (units.filter(u => u.faction === 'player').length >= 10) return;
                 placeUnit('player', CARD_TYPES[selectedCard].id, lane, c.x, c.y);
             } else {
-                if (placeUnit('player', CARD_TYPES[selectedCard].id, lane, c.x, c.y)) {
-                    selectedCard = null; updateCardsSelection();
-                }
+                if (placeUnit('player', CARD_TYPES[selectedCard].id, lane, c.x, c.y)) { selectedCard = null; updateCardsSelection(); }
             }
             return;
         }
@@ -689,18 +618,11 @@
             let div = document.createElement('div');
             div.className = 'card';
             div.innerHTML = `<span class="cost">${c.cost}</span><br>${c.sym} ${c.name}`;
-            div.addEventListener('click', (e) => {
-                e.stopPropagation();
-                selectedCard = selectedCard === i ? null : i;
-                updateCardsSelection();
-            });
+            div.addEventListener('click', (e) => { e.stopPropagation(); selectedCard = selectedCard === i ? null : i; updateCardsSelection(); });
             cardsContainer.appendChild(div);
         });
     }
-
-    function updateCardsSelection() {
-        document.querySelectorAll('.card').forEach((el, i) => el.classList.toggle('selected', i === selectedCard));
-    }
+    function updateCardsSelection() { document.querySelectorAll('.card').forEach((el, i) => el.classList.toggle('selected', i === selectedCard)); }
 
     function updateUI() {
         playerHpBar.style.width = (playerHQ.hp / playerHQ.max * 100) + '%';
@@ -715,37 +637,13 @@
         breakoutBtn.classList.toggle('cooldown', breakoutCd > 0);
     }
 
-    abilityBtn.addEventListener('click', () => {
-        if (gamePhase !== 'battle' || abilityCd > 0) return;
-        abilityActive = true; abilityTimer = 5; abilityCd = 20;
-    });
-    retreatBtn.addEventListener('click', () => {
-        if (gamePhase !== 'battle' || retreatCd > 0) return;
-        retreatActive = true; retreatTimer = 4; retreatCd = 25;
-        units.forEach(u => { if (u.faction === 'player') { u.retreating = true; u.moveTx = null; u.hold = false; } });
-    });
-    stopBtn.addEventListener('click', () => {
-        selectedUnits.forEach(u => { u.moveTx = null; u.hold = false; u.repairTarget = null; });
-        selectedUnits = []; selectedCountSpan.textContent = '0';
-    });
-    holdBtn.addEventListener('click', () => {
-        selectedUnits.forEach(u => { u.hold = !u.hold; u.moveTx = null; u.repairTarget = null; });
-    });
-    smokeBtn.addEventListener('click', () => {
-        if (gamePhase !== 'battle' || smokeCd > 0) return;
-        let gen = units.find(u => u.faction === 'player' && u.type === 'general');
-        if (!gen) return;
-        smokePos = { x: gen.x, y: gen.y, lane: gen.lane };
-        smokeActive = true; smokeTimer = 6; smokeCd = 20;
-    });
-    reconBtn.addEventListener('click', () => {
-        if (gamePhase !== 'battle' || reconCd > 0) return;
-        reconActive = true; reconTimer = 5; reconCd = 25;
-    });
-    breakoutBtn.addEventListener('click', () => {
-        if (gamePhase !== 'battle' || breakoutCd > 0) return;
-        breakoutActive = true; breakoutTimer = 4; breakoutCd = 15;
-    });
+    abilityBtn.addEventListener('click', () => { if (gamePhase !== 'battle' || abilityCd > 0) return; abilityActive = true; abilityTimer = 5; abilityCd = 20; });
+    retreatBtn.addEventListener('click', () => { if (gamePhase !== 'battle' || retreatCd > 0) return; retreatActive = true; retreatTimer = 4; retreatCd = 25; units.forEach(u => { if (u.faction === 'player') { u.retreating = true; u.moveTx = null; u.hold = false; } }); });
+    stopBtn.addEventListener('click', () => { selectedUnits.forEach(u => { u.moveTx = null; u.hold = false; u.repairTarget = null; }); selectedUnits = []; selectedCountSpan.textContent = '0'; });
+    holdBtn.addEventListener('click', () => { selectedUnits.forEach(u => { u.hold = !u.hold; u.moveTx = null; u.repairTarget = null; }); });
+    smokeBtn.addEventListener('click', () => { if (gamePhase !== 'battle' || smokeCd > 0) return; let gen = units.find(u => u.faction === 'player' && u.type === 'general'); if (!gen) return; smokePos = { x: gen.x, y: gen.y, lane: gen.lane }; smokeActive = true; smokeTimer = 6; smokeCd = 20; });
+    reconBtn.addEventListener('click', () => { if (gamePhase !== 'battle' || reconCd > 0) return; reconActive = true; reconTimer = 5; reconCd = 25; });
+    breakoutBtn.addEventListener('click', () => { if (gamePhase !== 'battle' || breakoutCd > 0) return; breakoutActive = true; breakoutTimer = 4; breakoutCd = 15; });
 
     function resetGame() {
         playerRes = { pts: 4, rate: 0.5, wh: 0 };
@@ -760,6 +658,7 @@
         gamePhase = 'preparation'; preparationTimer = 25;
         generateTerrain();
         initPoints(); updateRates();
+        // Генерал игрока
         units.push({
             id: uid++, faction: 'player', type: 'general', lane: 0, x: 40, y: LANES_Y[0],
             hp: 200, maxHp: 200, baseDmg: 0, dmg: 0, baseAtkSpd: 99, atkSpd: 99, atkCd: 0,
@@ -769,6 +668,18 @@
             retreating: false, moveTx: null, hold: false, repairTarget: null,
             xp: 0, level: 0, lastAttackerId: null, attackFlash: 0, encirclementTimer: 0
         });
+        // Генерал врага (на normal/hard)
+        if (difficulty !== 'easy') {
+            units.push({
+                id: uid++, faction: 'enemy', type: 'general', lane: 5, x: W - 40, y: LANES_Y[5],
+                hp: 200, maxHp: 200, baseDmg: 0, dmg: 0, baseAtkSpd: 99, atkSpd: 99, atkCd: 0,
+                baseSpd: 35, spd: 35, range: 0, target: null,
+                color: '#ffd54f', sym: '⭐', armor: 0, antiInf: false, antiTank: false, splash: 0,
+                placeFort: false, fortTime: 3.0, fortBuilt: true, fortTimer: 0,
+                retreating: false, moveTx: null, hold: false, repairTarget: null,
+                xp: 0, level: 0, lastAttackerId: null, attackFlash: 0, encirclementTimer: 0
+            });
+        }
         buildCardsUI(); updateCardsSelection();
         winMessage.style.display = 'none';
     }
@@ -776,8 +687,8 @@
     function startGame() {
         difficulty = difficultySelect.value;
         if (difficulty === 'easy') { AI_SPAWN_INT = 5.5; aiHpMult = 0.8; playerRes.pts = 6; enemyRes.pts = 3; }
-        else if (difficulty === 'hard') { AI_SPAWN_INT = 2.5; aiHpMult = 1.2; playerRes.pts = 3; enemyRes.pts = 5; }
-        else { AI_SPAWN_INT = 3.8; aiHpMult = 1.0; playerRes.pts = 4; enemyRes.pts = 4; }
+        else if (difficulty === 'hard') { AI_SPAWN_INT = 2.0; aiHpMult = 1.4; playerRes.pts = 3; enemyRes.pts = 5; }
+        else { AI_SPAWN_INT = 2.8; aiHpMult = 1.1; playerRes.pts = 4; enemyRes.pts = 4; }
         menu.style.display = 'none';
         gameDiv.style.display = 'flex';
         resetGame();
@@ -823,17 +734,23 @@
                     }
                 });
             }
-
-            if (smokeActive && smokePos) {
+            let enemyGen = units.find(u => u.faction === 'enemy' && u.type === 'general');
+            if (enemyGen && enemyGen.hp > 0) {
                 units.forEach(u => {
-                    if (u.faction === 'enemy' && u.lane === smokePos.lane && Math.abs(u.x - smokePos.x) < 70) {
-                        u.range = 0;
+                    if (u.faction === 'enemy' && u !== enemyGen && Math.hypot(u.x - enemyGen.x, u.y - enemyGen.y) < 90) {
+                        u.atkSpd = u.baseAtkSpd * 0.85;
+                        u.dmg = u.baseDmg * 1.1;
                     }
                 });
             }
 
+            if (smokeActive && smokePos) {
+                units.forEach(u => { if (u.faction === 'enemy' && u.lane === smokePos.lane && Math.abs(u.x - smokePos.x) < 70) u.range = 0; });
+            }
+
             aiSpawnTimer += dt;
             if (aiSpawnTimer >= AI_SPAWN_INT) { aiSpawnTimer = 0; aiBattleSpawn(); }
+            aiAbilities();
 
             updateCaptures(dt);
             updateEncirclement(dt);
@@ -854,11 +771,7 @@
 
     function endGame() {
         winMessage.style.display = 'block';
-        setTimeout(() => {
-            winMessage.style.display = 'none';
-            gameDiv.style.display = 'none';
-            menu.style.display = 'flex';
-        }, 3000);
+        setTimeout(() => { winMessage.style.display = 'none'; gameDiv.style.display = 'none'; menu.style.display = 'flex'; }, 3000);
     }
 
     menu.style.display = 'flex';
